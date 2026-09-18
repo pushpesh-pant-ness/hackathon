@@ -1,0 +1,34 @@
+[
+  {
+    "question": "Hi",
+    "expected_flow": "greeting"
+  },
+  {
+    "question": "What services do you provide?",
+    "expected_flow": "service_list",
+    "must_have_source": true
+  },
+  {
+    "question": "Tell me about Salesforce",
+    "expected_flow": "service_detail",
+    "must_have_source": true
+  },
+  {
+    "question": "What are its benefits?",
+    "expected_flow": "follow_up",
+    "requires_prior_context": true
+  },
+  {
+    "question": "Where are your offices?",
+    "expected_flow": "general_qa",
+    "must_have_source": true
+  },
+  {
+    "question": "What is your pricing?",
+    "expected_behavior": "fallback_no_evidence"
+  },
+  {
+    "question": "Tell me something about dinosaurs",
+    "expected_behavior": "fallback"
+  }
+]

@@ -1,0 +1,112 @@
+{
+  "session_id": "fixture_demo",
+  "base_url": "https://aurora-digital.example",
+  "normalized_host": "aurora-digital.example",
+  "pages_discovered": 8,
+  "pages_retained": 8,
+  "pages_failed": 0,
+  "chunks": 19,
+  "services": [
+    "AI & Machine Learning",
+    "Cloud Migration",
+    "Data Engineering",
+    "Salesforce Consulting"
+  ],
+  "embedding_model": "local-hash-embed",
+  "embedding_dimensions": 1024,
+  "created_at": "2026-09-18T11:14:40.902248+00:00",
+  "status": "ready",
+  "documents": [
+    {
+      "document_id": "home",
+      "source_url": "https://aurora-digital.example/",
+      "canonical_url": "https://aurora-digital.example/",
+      "title": "Aurora Digital Solutions \u2014 Home",
+      "headings": [
+        "Aurora Digital Solutions",
+        "What We Do"
+      ],
+      "service": null
+    },
+    {
+      "document_id": "services",
+      "source_url": "https://aurora-digital.example/services",
+      "canonical_url": "https://aurora-digital.example/services",
+      "title": "Our Services",
+      "headings": [
+        "Our Services"
+      ],
+      "service": null
+    },
+    {
+      "document_id": "salesforce",
+      "source_url": "https://aurora-digital.example/services/salesforce",
+      "canonical_url": "https://aurora-digital.example/services/salesforce",
+      "title": "Salesforce Consulting Services",
+      "headings": [
+        "Salesforce Consulting",
+        "Our Approach",
+        "Benefits"
+      ],
+      "service": "Salesforce Consulting"
+    },
+    {
+      "document_id": "data-engineering",
+      "source_url": "https://aurora-digital.example/services/data-engineering",
+      "canonical_url": "https://aurora-digital.example/services/data-engineering",
+      "title": "Data Engineering Services",
+      "headings": [
+        "Data Engineering",
+        "Our Approach",
+        "Benefits"
+      ],
+      "service": "Data Engineering"
+    },
+    {
+      "document_id": "cloud-migration",
+      "source_url": "https://aurora-digital.example/services/cloud-migration",
+      "canonical_url": "https://aurora-digital.example/services/cloud-migration",
+      "title": "Cloud Migration Services",
+      "headings": [
+        "Cloud Migration",
+        "Our Approach",
+        "Benefits"
+      ],
+      "service": "Cloud Migration"
+    },
+    {
+      "document_id": "ai-ml",
+      "source_url": "https://aurora-digital.example/services/ai-ml",
+      "canonical_url": "https://aurora-digital.example/services/ai-ml",
+      "title": "AI & Machine Learning Services",
+      "headings": [
+        "AI & Machine Learning",
+        "Our Approach",
+        "Benefits"
+      ],
+      "service": "AI & Machine Learning"
+    },
+    {
+      "document_id": "about",
+      "source_url": "https://aurora-digital.example/about",
+      "canonical_url": "https://aurora-digital.example/about",
+      "title": "About Aurora Digital Solutions",
+      "headings": [
+        "About Us",
+        "Our Values"
+      ],
+      "service": null
+    },
+    {
+      "document_id": "contact",
+      "source_url": "https://aurora-digital.example/contact",
+      "canonical_url": "https://aurora-digital.example/contact",
+      "title": "Contact Us",
+      "headings": [
+        "Our Offices",
+        "Contact Us"
+      ],
+      "service": null
+    }
+  ]
+}
