@@ -1,3 +1,4 @@
+# Streamlit UI is owned by Dev B (Milestone 7). Placeholder to reserve the folder.
 """Streamlit UI: URL input, crawl status, discovered services, chat, sources.
 
 Talks to the FastAPI backend over HTTP only - per architecture.md Section 10, AWS

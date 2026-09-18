@@ -1,0 +1,98 @@
+[
+  {
+    "chunk_id": "doc-0-c0",
+    "document_id": "doc-0",
+    "chunk_index": 0,
+    "text": "Acme Cloud — Home > Acme Cloud\n\nAcme Cloud helps mid-size companies move to the cloud with confidence. We offer managed migration, data engineering, and Salesforce consulting services.",
+    "source_url": "https://acme-cloud.example.com/",
+    "canonical_url": "https://acme-cloud.example.com/",
+    "title": "Acme Cloud — Home",
+    "heading": "Acme Cloud",
+    "service": null,
+    "crawl_session_id": "fixture_demo"
+  },
+  {
+    "chunk_id": "doc-0-c1",
+    "document_id": "doc-0",
+    "chunk_index": 1,
+    "text": "Acme Cloud — Home > Why Acme\n\nOur teams have delivered over 200 cloud projects. We focus on reliability, cost control, and measurable business outcomes.",
+    "source_url": "https://acme-cloud.example.com/",
+    "canonical_url": "https://acme-cloud.example.com/",
+    "title": "Acme Cloud — Home",
+    "heading": "Why Acme",
+    "service": null,
+    "crawl_session_id": "fixture_demo"
+  },
+  {
+    "chunk_id": "doc-1-c0",
+    "document_id": "doc-1",
+    "chunk_index": 0,
+    "text": "Salesforce Consulting — Acme Cloud > Salesforce Consulting\n\nAcme Cloud is a certified Salesforce partner. We implement Sales Cloud, Service Cloud, and custom Lightning applications tailored to your sales process.",
+    "source_url": "https://acme-cloud.example.com/services/salesforce",
+    "canonical_url": "https://acme-cloud.example.com/services/salesforce",
+    "title": "Salesforce Consulting — Acme Cloud",
+    "heading": "Salesforce Consulting",
+    "service": "Salesforce",
+    "crawl_session_id": "fixture_demo"
+  },
+  {
+    "chunk_id": "doc-1-c1",
+    "document_id": "doc-1",
+    "chunk_index": 1,
+    "text": "Salesforce Consulting — Acme Cloud > Our Approach\n\nWe start with a discovery workshop, define a rollout roadmap, then deliver in two-week sprints with continuous user training.",
+    "source_url": "https://acme-cloud.example.com/services/salesforce",
+    "canonical_url": "https://acme-cloud.example.com/services/salesforce",
+    "title": "Salesforce Consulting — Acme Cloud",
+    "heading": "Our Approach",
+    "service": "Salesforce",
+    "crawl_session_id": "fixture_demo"
+  },
+  {
+    "chunk_id": "doc-1-c2",
+    "document_id": "doc-1",
+    "chunk_index": 2,
+    "text": "Salesforce Consulting — Acme Cloud > Benefits\n\nCustomers typically see faster onboarding, cleaner pipeline data, and higher adoption after our Salesforce engagements.",
+    "source_url": "https://acme-cloud.example.com/services/salesforce",
+    "canonical_url": "https://acme-cloud.example.com/services/salesforce",
+    "title": "Salesforce Consulting — Acme Cloud",
+    "heading": "Benefits",
+    "service": "Salesforce",
+    "crawl_session_id": "fixture_demo"
+  },
+  {
+    "chunk_id": "doc-2-c0",
+    "document_id": "doc-2",
+    "chunk_index": 0,
+    "text": "Data Engineering — Acme Cloud > Data Engineering\n\nWe build reliable data pipelines on AWS using Glue, Redshift, and S3. Our engineers design ingestion, transformation, and warehousing layers.",
+    "source_url": "https://acme-cloud.example.com/services/data-engineering",
+    "canonical_url": "https://acme-cloud.example.com/services/data-engineering",
+    "title": "Data Engineering — Acme Cloud",
+    "heading": "Data Engineering",
+    "service": "Data Engineering",
+    "crawl_session_id": "fixture_demo"
+  },
+  {
+    "chunk_id": "doc-2-c1",
+    "document_id": "doc-2",
+    "chunk_index": 1,
+    "text": "Data Engineering — Acme Cloud > Use Cases\n\nCommon projects include migrating on-prem warehouses to Redshift, building near-real-time analytics, and setting up data quality monitoring.",
+    "source_url": "https://acme-cloud.example.com/services/data-engineering",
+    "canonical_url": "https://acme-cloud.example.com/services/data-engineering",
+    "title": "Data Engineering — Acme Cloud",
+    "heading": "Use Cases",
+    "service": "Data Engineering",
+    "crawl_session_id": "fixture_demo"
+  },
+  {
+    "chunk_id": "doc-3-c0",
+    "document_id": "doc-3",
+    "chunk_index": 0,
+    "text": "Contact — Acme Cloud > Contact Us\n\nReach the Acme Cloud team at hello@acme-cloud.example.com or call +1-555-0100. Our offices are in Boston and Austin.",
+    "source_url": "https://acme-cloud.example.com/contact",
+    "canonical_url": "https://acme-cloud.example.com/contact",
+    "title": "Contact — Acme Cloud",
+    "heading": "Contact Us",
+    "service": null,
+    "crawl_session_id": "fixture_demo"
+  }
+]

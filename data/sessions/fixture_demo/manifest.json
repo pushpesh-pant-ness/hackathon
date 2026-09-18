@@ -1,0 +1,17 @@
+{
+  "session_id": "fixture_demo",
+  "base_url": "https://acme-cloud.example.com",
+  "normalized_host": "acme-cloud.example.com",
+  "pages_discovered": 4,
+  "pages_retained": 4,
+  "pages_failed": 0,
+  "chunks": 8,
+  "services": [
+    "Data Engineering",
+    "Salesforce"
+  ],
+  "embedding_model": "deterministic-fixture",
+  "embedding_dimensions": 1024,
+  "created_at": "2026-09-18T09:42:53.807273+00:00",
+  "status": "ready"
+}

@@ -1,1 +1,19 @@
+# Secrets / environment
 .env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Session data / knowledge bases (keep the fixture, ignore real crawls)
+data/sessions/*
+!data/sessions/fixture_demo/
+!data/sessions/.gitkeep
+
+# OS / editor
+.DS_Store
+.vscode/
