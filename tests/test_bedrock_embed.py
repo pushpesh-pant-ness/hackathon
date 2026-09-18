@@ -8,14 +8,12 @@ run in CI/offline. Run explicitly with real creds to verify Bedrock access:
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from app import bedrock, config
+from app.config import settings
 
-
-_HAS_AWS = bool(os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"))
+_HAS_AWS = bool(settings.aws_access_key_id and settings.aws_secret_access_key)
 
 
 @pytest.mark.skipif(not _HAS_AWS, reason="AWS credentials not configured")

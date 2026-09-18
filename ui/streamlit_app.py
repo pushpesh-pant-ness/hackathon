@@ -95,6 +95,12 @@ if st.session_state.crawl_job_id:
             if st.session_state.poll_count <= 15:
                 time.sleep(1.5)
                 st.rerun()
+        elif status.get("pages_failed"):
+            st.warning(
+                "Crawl completed with warnings\n\n"
+                f"Pages retained: {status['pages_retained']}  \n"
+                f"Pages failed: {status['pages_failed']}"
+            )
         else:
             st.success("Knowledge base ready.")
     except requests.RequestException as exc:

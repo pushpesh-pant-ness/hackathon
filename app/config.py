@@ -1,16 +1,10 @@
-"""Centralized configuration loaded from environment variables.
-
-Shared by Dev A (ingestion) and Dev B (serving). Coordinate before changing
-default values that affect data contracts (e.g. EMBED_DIMENSIONS).
-"""
-
-from __future__ import annotations
-
-import os
 """Central configuration for the backend. Loads .env once and exposes typed settings.
 
 Both Dev A (ingest/) and Dev B (app/, ui/) import from here so paths, model IDs, and
-tuning knobs stay in one place instead of being hardcoded per module.
+tuning knobs stay in one place instead of being hardcoded per module. Dev A's modules
+import this as `config` and read bare module-level constants (config.MAX_PAGES,
+config.session_dir(), ...); Dev B's modules read the `settings` object below. Both
+views are derived from one Settings instance - keep it that way when adding knobs.
 """
 from __future__ import annotations
 
@@ -20,42 +14,6 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
-
-
-def _int(name: str, default: int) -> int:
-    return int(os.getenv(name, str(default)))
-
-
-def _float(name: str, default: float) -> float:
-    return float(os.getenv(name, str(default)))
-
-
-# --- AWS / Bedrock ---
-AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-BEDROCK_CHAT_MODEL_ID = os.getenv("BEDROCK_CHAT_MODEL_ID", "amazon.nova-pro-v1:0")
-BEDROCK_EMBED_MODEL_ID = os.getenv("BEDROCK_EMBED_MODEL_ID", "amazon.titan-embed-text-v2:0")
-EMBED_DIMENSIONS = _int("EMBED_DIMENSIONS", 1024)
-
-# --- Crawl limits ---
-MAX_PAGES = _int("MAX_PAGES", 20)
-MAX_DEPTH = _int("MAX_DEPTH", 3)
-REQUEST_TIMEOUT = _int("REQUEST_TIMEOUT", 10)
-MAX_RESPONSE_BYTES = _int("MAX_RESPONSE_BYTES", 2_000_000)
-CRAWL_DELAY_SECONDS = _float("CRAWL_DELAY_SECONDS", 0.5)
-USER_AGENT = os.getenv("USER_AGENT", "HackathonRAGBot/0.1")
-
-# --- Storage ---
-DATA_DIR = Path(os.getenv("DATA_DIR", "data/sessions"))
-
-# --- Chunking ---
-CHUNK_TARGET_TOKENS = _int("CHUNK_TARGET_TOKENS", 800)
-CHUNK_OVERLAP_TOKENS = _int("CHUNK_OVERLAP_TOKENS", 120)
-
-
-def session_dir(session_id: str) -> Path:
-    """Filesystem root for one crawl session's knowledge base."""
-    return DATA_DIR / session_id
 REPO_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(REPO_ROOT / ".env")
 
@@ -94,9 +52,17 @@ class Settings:
         default_factory=lambda: _env_float("EVIDENCE_SIMILARITY_THRESHOLD", 0.35)
     )
 
-    # Crawl limits (Dev A owns the enforcement, Dev B reads them for status/analytics display)
+    # Crawl limits + politeness (Dev A owns enforcement, Dev B reads them for status/analytics)
     max_pages: int = field(default_factory=lambda: _env_int("MAX_PAGES", 20))
     max_crawl_depth: int = field(default_factory=lambda: _env_int("MAX_CRAWL_DEPTH", 3))
+    request_timeout: int = field(default_factory=lambda: _env_int("REQUEST_TIMEOUT", 10))
+    max_response_bytes: int = field(default_factory=lambda: _env_int("MAX_RESPONSE_BYTES", 2_000_000))
+    crawl_delay_seconds: float = field(default_factory=lambda: _env_float("CRAWL_DELAY_SECONDS", 0.5))
+    user_agent: str = field(default_factory=lambda: _env_str("USER_AGENT", "HackathonRAGBot/0.1"))
+
+    # Chunking (Dev A)
+    chunk_target_tokens: int = field(default_factory=lambda: _env_int("CHUNK_TARGET_TOKENS", 800))
+    chunk_overlap_tokens: int = field(default_factory=lambda: _env_int("CHUNK_OVERLAP_TOKENS", 120))
 
     # Storage paths (resolved absolute, relative to repo root)
     data_dir: Path = field(default_factory=lambda: REPO_ROOT / _env_str("DATA_DIR", "data"))
@@ -116,3 +82,27 @@ class Settings:
 
 settings = Settings()
 settings.ensure_dirs()
+
+
+# --- Module-level aliases for ingest/*.py, which import this module as `config` and
+# read bare constants (config.MAX_PAGES, config.session_dir(), ...) instead of `settings`.
+# Kept as separate module globals so tests can monkeypatch `config.DATA_DIR` directly
+# (see tests/test_pipeline.py) without touching the frozen Settings instance.
+AWS_REGION = settings.aws_region
+BEDROCK_CHAT_MODEL_ID = settings.nova_model_id
+BEDROCK_EMBED_MODEL_ID = settings.titan_model_id
+EMBED_DIMENSIONS = settings.embedding_dimensions
+MAX_PAGES = settings.max_pages
+MAX_DEPTH = settings.max_crawl_depth
+REQUEST_TIMEOUT = settings.request_timeout
+MAX_RESPONSE_BYTES = settings.max_response_bytes
+CRAWL_DELAY_SECONDS = settings.crawl_delay_seconds
+USER_AGENT = settings.user_agent
+CHUNK_TARGET_TOKENS = settings.chunk_target_tokens
+CHUNK_OVERLAP_TOKENS = settings.chunk_overlap_tokens
+DATA_DIR = settings.sessions_dir
+
+
+def session_dir(session_id: str) -> Path:
+    """Filesystem root for one crawl session's knowledge base (mirrors settings.session_dir)."""
+    return DATA_DIR / session_id

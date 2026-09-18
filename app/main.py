@@ -66,25 +66,7 @@ class ChatResponse(BaseModel):
 def _run_ingestion_job(session_id: str, job_id: str, url: str) -> None:
     db.update_crawl_job(job_id, status="running", started_at=_now_iso())
     try:
-        result = ingest_pipeline.run_ingestion(session_id, url, sessions.session_dir(session_id))
-    except ingest_pipeline.IngestionNotImplemented as exc:
-        logger.warning("ingest.pipeline not implemented yet, seeding %s from fixture_demo: %s", session_id, exc)
-        try:
-            manifest = sessions.seed_from_fixture(session_id)
-        except FileNotFoundError as fixture_exc:
-            db.update_crawl_job(job_id, status="failed", error=str(fixture_exc), finished_at=_now_iso())
-            sessions.update_session(session_id, status="failed")
-            return
-        db.update_crawl_job(
-            job_id,
-            status="done",
-            finished_at=_now_iso(),
-            pages_discovered=manifest["pages_discovered"],
-            pages_retained=manifest["pages_retained"],
-            pages_failed=manifest.get("pages_failed", 0),
-        )
-        retrieval.invalidate_cache(session_id)
-        return
+        result = ingest_pipeline.run_ingestion(url, session_id=session_id)
     except Exception as exc:  # crawl failures must not crash the worker (FINAL_PLAN Sec. 28)
         logger.exception("Ingestion failed for session %s", session_id)
         db.update_crawl_job(job_id, status="failed", error=str(exc), finished_at=_now_iso())
@@ -93,18 +75,33 @@ def _run_ingestion_job(session_id: str, job_id: str, url: str) -> None:
 
     db.update_crawl_job(
         job_id,
-        status="done",
+        status="done" if result.status == "ready" else "failed",
         finished_at=_now_iso(),
-        pages_discovered=result.get("pages_discovered", 0),
-        pages_retained=result.get("pages_retained", 0),
-        pages_failed=result.get("pages_failed", 0),
+        pages_discovered=result.pages_discovered,
+        pages_retained=result.pages_retained,
+        pages_failed=result.pages_failed,
+        error=result.error,
     )
+
+    if result.status != "ready":
+        # Zero usable pages/chunks (§28) - never mark the session ready with no index.
+        sessions.update_session(session_id, status="failed")
+        return
+
+    for doc in result.documents:
+        db.insert_document(
+            session_id,
+            url=doc["url"],
+            title=doc["title"],
+            service=doc["service"],
+            document_id=doc["document_id"],
+        )
     sessions.update_session(
         session_id,
         status="ready",
-        pages_discovered=result.get("pages_discovered", 0),
-        pages_retained=result.get("pages_retained", 0),
-        chunks=result.get("chunks", 0),
+        pages_discovered=result.pages_discovered,
+        pages_retained=result.pages_retained,
+        chunks=result.chunks,
     )
     retrieval.invalidate_cache(session_id)
 
