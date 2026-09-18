@@ -159,8 +159,11 @@ def _fetch(session: requests.Session, url: str, allowed_hosts: set[str]) -> Reta
             resp.close()
             return None
 
-        body = _read_capped(resp, config.MAX_RESPONSE_BYTES)
-        resp.close()
+        try:
+            body = _read_capped(resp, config.MAX_RESPONSE_BYTES)
+        finally:
+            # Ensure the connection is released even if the size cap raises.
+            resp.close()
         html = body.decode(resp.encoding or "utf-8", errors="replace")
         if not _has_meaningful_text(html):
             return None
