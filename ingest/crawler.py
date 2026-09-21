@@ -126,6 +126,20 @@ def _read_capped(resp: requests.Response, cap: int) -> bytes:
     return b"".join(chunks)
 
 
+def _sniff_encoding(body: bytes) -> str:
+    """Best-effort charset sniff for pages with no declared Content-Type charset.
+
+    Can't use requests' `resp.apparent_encoding` here: it re-reads `resp.content`,
+    which raises once the body has already been consumed via manual streaming
+    (see `_read_capped`). Detect straight from the bytes we already have instead.
+    """
+    try:
+        import chardet
+    except ImportError:  # pragma: no cover - chardet ships with requests today
+        return "utf-8"
+    return chardet.detect(body).get("encoding") or "utf-8"
+
+
 def _fetch(session: requests.Session, url: str, allowed_hosts: set[str]) -> RetainedPage | None:
     """Fetch a URL, following redirects manually and revalidating each hop (§30).
 
@@ -159,12 +173,18 @@ def _fetch(session: requests.Session, url: str, allowed_hosts: set[str]) -> Reta
             resp.close()
             return None
 
+        has_explicit_charset = "charset=" in resp.headers.get("Content-Type", "").lower()
         try:
             body = _read_capped(resp, config.MAX_RESPONSE_BYTES)
         finally:
             # Ensure the connection is released even if the size cap raises.
             resp.close()
-        html = body.decode(resp.encoding or "utf-8", errors="replace")
+        # requests defaults resp.encoding to ISO-8859-1 for text/* with no charset param
+        # (RFC 2616 default), which mangles UTF-8 pages (e.g. non-English text) - only
+        # trust resp.encoding when the server actually declared a charset, otherwise sniff
+        # the real encoding from the bytes themselves.
+        encoding = resp.encoding if has_explicit_charset else _sniff_encoding(body)
+        html = body.decode(encoding or "utf-8", errors="replace")
         if not _has_meaningful_text(html):
             return None
         return RetainedPage(

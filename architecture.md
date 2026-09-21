@@ -495,11 +495,15 @@ flow_events(
 
 | Endpoint | Purpose | Response highlights |
 |---|---|---|
-| `POST /ingest` | Start a crawl for a URL, creates a session | `{ session_id, job_id, status }` |
-| `GET /ingest/{job_id}` | Poll crawl progress | `{ status, pages_discovered, pages_retained, pages_failed, chunks, services }` |
+| `POST /ingest` | Phase 1: crawl a URL and build its site map, creates a session | `{ session_id, job_id, status }` |
+| `GET /ingest/{job_id}` | Poll crawl/build progress | `{ status, pages_discovered, pages_retained, pages_failed, chunks, services, sitemap: { pages, failures } }` |
+| `POST /ingest/{job_id}/build` | Phase 2: turn a ready site map (`status="sitemap_ready"`) into a queryable knowledge base | `{ session_id, job_id, status }` |
 | `POST /chat` | Ask a question within a session | `{ reply, flow, sources: [{title, url}] }` |
 | `GET /sessions/{session_id}` | Full transcript + crawl status + services | website, crawl status, services, messages, flow events |
 | `GET /analytics/report?session_id=` | Flow and retrieval analytics | pages crawled, fallback rate, latency, top sources |
+
+`crawl_jobs.status` progresses `queued -> crawling -> sitemap_ready -> building -> done`
+(or `failed` at any stage). Chat is only unlocked once status is `done`.
 
 Example:
 

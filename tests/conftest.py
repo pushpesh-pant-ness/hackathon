@@ -10,7 +10,10 @@ os.environ.setdefault("SESSIONS_DIR", "data/test_sessions")
 # Tuned for the crude local hash-embedding backend (short query vs longer chunk text
 # yields much lower cosine similarity than real Titan embeddings do) - NOT the value
 # used against real Bedrock embeddings (see .env.example / app/config.py default 0.35).
-os.environ.setdefault("EVIDENCE_SIMILARITY_THRESHOLD", "0.15")
+# Must stay above ~0.21: single-keyword queries like "pricing" can hash-collide with an
+# unrelated chunk token and score ~0.213 even with zero real overlap (verified by hand);
+# true positive matches in the fixture score >= 0.35, so 0.25 separates the two cleanly.
+os.environ.setdefault("EVIDENCE_SIMILARITY_THRESHOLD", "0.25")
 
 import pytest  # noqa: E402
 

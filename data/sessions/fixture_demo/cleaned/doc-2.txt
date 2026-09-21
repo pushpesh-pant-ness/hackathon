@@ -1,7 +1,0 @@
-Data Engineering — Acme Cloud
-
-Data Engineering
-We build reliable data pipelines on AWS using Glue, Redshift, and S3. Our engineers design ingestion, transformation, and warehousing layers.
-
-Use Cases
-Common projects include migrating on-prem warehouses to Redshift, building near-real-time analytics, and setting up data quality monitoring.

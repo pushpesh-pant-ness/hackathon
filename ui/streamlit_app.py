@@ -47,7 +47,10 @@ def call_api(method: str, path: str, *, timeout: int = 15, **kwargs) -> dict:
         raise BackendError(_error_detail(exc)) from exc
 
 
-TERMINAL_STATUSES = ("done", "failed")
+# Ingestion is a 3-phase flow: crawl -> site map, then build -> knowledge base,
+# then chat is unlocked. Poll while a background job is actively working; render
+# from cached session_state once it lands on a stable status.
+POLL_STATUSES = {"queued", "crawling", "building"}
 
 _DEFAULTS = {
     "session_id": None,
@@ -57,8 +60,11 @@ _DEFAULTS = {
     "pages_retained": 0,
     "pages_discovered": 0,
     "pages_failed": 0,
+    "chunks": 0,
     "crawl_error": None,
     "services": [],
+    "sitemap_pages": [],
+    "sitemap_failures": [],
     "messages": [],
     "poll_count": 0,
     "error": None,
@@ -80,7 +86,7 @@ st.caption("Enter a website URL, build a bounded knowledge base, then ask questi
 
 with st.form("ingest_form", clear_on_submit=False):
     url = st.text_input("Website URL", value=st.session_state.website_url, placeholder="https://example.com")
-    submitted = st.form_submit_button("Build Knowledge Base")
+    submitted = st.form_submit_button("Build Site Map")
 
 if submitted and url:
     try:
@@ -93,6 +99,10 @@ if submitted and url:
         st.session_state.messages = []
         st.session_state.poll_count = 0
         st.session_state.pages_failed = 0
+        st.session_state.chunks = 0
+        st.session_state.services = []
+        st.session_state.sitemap_pages = []
+        st.session_state.sitemap_failures = []
         st.session_state.crawl_error = None
         st.session_state.error = None
     except BackendError as exc:
@@ -101,10 +111,11 @@ if submitted and url:
 if st.session_state.error:
     st.error(st.session_state.error)
 
-# Only poll the backend while the crawl is still in flight; once it reaches a terminal
-# status, render straight from cached session_state instead of re-fetching on every rerun
-# (e.g. every chat turn triggers a Streamlit rerun of this whole script).
-if st.session_state.crawl_job_id and st.session_state.crawl_status not in TERMINAL_STATUSES:
+# Only poll the backend while a job is actively running; once it lands on a stable
+# status (sitemap_ready/done/failed), render from cached session_state instead of
+# re-fetching on every rerun (e.g. every chat turn triggers a Streamlit rerun of the
+# whole script).
+if st.session_state.crawl_job_id and st.session_state.crawl_status in POLL_STATUSES:
     try:
         status_payload = call_api("GET", f"/ingest/{st.session_state.crawl_job_id}")
         st.session_state.crawl_status = status_payload["status"]
@@ -112,55 +123,103 @@ if st.session_state.crawl_job_id and st.session_state.crawl_status not in TERMIN
         st.session_state.pages_discovered = status_payload["pages_discovered"]
         st.session_state.pages_failed = status_payload["pages_failed"]
         st.session_state.services = status_payload["services"]
+        st.session_state.chunks = status_payload["chunks"]
         st.session_state.crawl_error = status_payload.get("error")
+        sitemap = status_payload.get("sitemap") or {}
+        st.session_state.sitemap_pages = sitemap.get("pages", [])
+        st.session_state.sitemap_failures = sitemap.get("failures", [])
     except BackendError as exc:
-        st.error(f"Could not fetch crawl status: {exc}")
+        st.error(f"Could not fetch status: {exc}")
 
 if st.session_state.crawl_job_id:
     status = st.session_state.crawl_status
-    still_working = status not in TERMINAL_STATUSES
-    label = {
+    crawling = status in ("queued", "crawling")
+    # A site map only fails to appear if the crawl itself failed outright; once
+    # sitemap_ready is reached, any later "failed" belongs to the build phase instead.
+    crawl_failed = status == "failed" and not st.session_state.sitemap_pages
+
+    sitemap_label = {
         "queued": "Queued...",
-        "running": "Crawling website...",
-        "done": "Knowledge base ready"
-        if not st.session_state.pages_failed
-        else "Knowledge base ready (with warnings)",
-        "failed": "Crawl failed",
-    }.get(status, "Working...")
-    box_state = "error" if status == "failed" else ("complete" if status == "done" else "running")
+        "crawling": "Building site map...",
+    }.get(status, "Site map failed" if crawl_failed else "Site map ready")
+    sitemap_state = "running" if crawling else ("error" if crawl_failed else "complete")
 
-    with st.status(label, state=box_state, expanded=still_working or status == "failed"):
+    with st.status(sitemap_label, state=sitemap_state, expanded=crawling or crawl_failed):
         progress = min(st.session_state.pages_retained / MAX_PAGES, 1.0) if MAX_PAGES else 0.0
-        st.progress(progress, text=f"{st.session_state.pages_retained} / {MAX_PAGES} pages retained")
+        st.progress(progress, text=f"{st.session_state.pages_retained} pages found")
 
-        if status == "failed":
+        if crawl_failed:
             st.error(
-                "Knowledge base could not be created. Please check the website URL or try another site.\n\n"
+                "Could not build a site map. Please check the website URL or try another site.\n\n"
                 f"({st.session_state.crawl_error or 'unknown error'})"
             )
-        elif status == "done" and st.session_state.pages_failed:
-            st.warning(
-                "Crawl completed with warnings\n\n"
-                f"Pages retained: {st.session_state.pages_retained}  \n"
-                f"Pages failed: {st.session_state.pages_failed}"
+        elif not crawling:
+            st.success(
+                f"Found {st.session_state.pages_retained} page(s)"
+                + (f", {st.session_state.pages_failed} skipped" if st.session_state.pages_failed else "")
+                + "."
             )
-        elif status == "done":
-            st.success("Knowledge base ready.")
+            if st.session_state.sitemap_pages:
+                with st.expander(f"Site map ({len(st.session_state.sitemap_pages)} pages)"):
+                    for page in st.session_state.sitemap_pages:
+                        st.markdown(f"- {page['canonical_url']}")
+            if st.session_state.sitemap_failures:
+                with st.expander(f"Pages skipped ({len(st.session_state.sitemap_failures)})"):
+                    for failure in st.session_state.sitemap_failures:
+                        st.caption(f"{failure['url']} — {failure['reason']}")
 
-    if still_working:
+    if status == "sitemap_ready":
+        if st.button("Add to Knowledge Base", type="primary"):
+            try:
+                build_data = call_api("POST", f"/ingest/{st.session_state.crawl_job_id}/build")
+                st.session_state.crawl_status = build_data["status"]
+                st.session_state.poll_count = 0
+                st.rerun()
+            except BackendError as exc:
+                st.error(f"Could not start knowledge base build: {exc}")
+
+    build_reachable = status in ("building", "done") or (status == "failed" and st.session_state.sitemap_pages)
+    if build_reachable:
+        build_label = {
+            "building": "Adding to knowledge base...",
+            "done": "Knowledge base ready"
+            if not st.session_state.pages_failed
+            else "Knowledge base ready (with warnings)",
+            "failed": "Knowledge base build failed",
+        }[status]
+        build_state = "running" if status == "building" else ("error" if status == "failed" else "complete")
+
+        with st.status(build_label, state=build_state, expanded=status in ("building", "failed")):
+            if status == "building":
+                st.write("Cleaning pages, detecting services, chunking, embedding, and indexing...")
+            elif status == "failed":
+                st.error(
+                    "Knowledge base could not be built from the site map.\n\n"
+                    f"({st.session_state.crawl_error or 'unknown error'})"
+                )
+            elif st.session_state.pages_failed:
+                st.warning(
+                    "Knowledge base built with warnings\n\n"
+                    f"Chunks indexed: {st.session_state.chunks}  \n"
+                    f"Pages skipped during crawl: {st.session_state.pages_failed}"
+                )
+            else:
+                st.success(f"Indexed {st.session_state.chunks} chunks. Ready for questions.")
+
+        if st.session_state.services:
+            st.subheader("Discovered Services")
+            for service in st.session_state.services:
+                st.markdown(f"- {service}")
+        elif status == "done":
+            st.caption("No distinct services were detected on this site.")
+
+    if status in POLL_STATUSES:
         st.session_state.poll_count += 1
-        if st.session_state.poll_count <= 15:
+        if st.session_state.poll_count <= 30:
             time.sleep(1.5)
             st.rerun()
         else:
             st.button("Refresh status")
-
-    if st.session_state.services:
-        st.subheader("Discovered Services")
-        for service in st.session_state.services:
-            st.markdown(f"- {service}")
-    elif status == "done":
-        st.caption("No distinct services were detected on this site.")
 
 st.divider()
 st.subheader("Chat")

@@ -184,7 +184,12 @@ def insert_document(
     status: str = "retained",
     document_id: str | None = None,
 ) -> str:
-    did = document_id or _new_id()
+    # `document_id` (when passed) is a content hash of the canonical URL alone
+    # (see ingest/extractor.py's _document_id) - the same URL crawled in two
+    # different sessions would otherwise collide on this table's PRIMARY KEY, so
+    # scope the stored id by session. Falls back to a fresh uuid when no
+    # document_id is given (already globally unique on its own).
+    did = f"{session_id}:{document_id}" if document_id else _new_id()
     with get_connection() as conn:
         conn.execute(
             """INSERT INTO documents (id, session_id, url, title, service, status, created_at)
