@@ -1,0 +1,94 @@
+Autonomous Post-Deployment Incident & Remediation Agent
+Business Scenario
+Post-deployment incidents require engineering teams to continuously monitor alerts, investigate logs, identify root causes and determine corrective actions.
+The submitted problem statement proposes an intelligent AI agent that can autonomously monitor, prioritize and resolve post-deployment issues while reducing manual effort and improving system reliability.
+Capstone Objective
+Develop an AI-powered operational agent capable of:
+•	Monitoring application health
+•	Analysing incidents
+•	Identifying probable root causes
+•	Searching historical incidents
+•	Recommending remediation
+•	Obtaining human approval
+•	Executing approved actions
+•	Validating the result
+Proposed Architecture
+             Application
+                  │
+       ┌──────────┼──────────┐
+       ▼          ▼          ▼
+     Logs       Metrics     Traces
+       │          │          │
+       └──────────┼──────────┘
+                  ▼
+          Incident Detection
+                  │
+                  ▼
+           AI Incident Agent
+                  │
+        ┌─────────┼─────────┐
+        ▼         ▼         ▼
+     Diagnosis Severity  Historical
+        │         │       Incidents
+        └─────────┼─────────┘
+                  ▼
+          Root Cause Analysis
+                  │
+                  ▼
+          Remediation Planning
+                  │
+                  ▼
+           Human Approval
+                  │
+                  ▼
+        Automated Remediation
+                  │
+                  ▼
+       Post-Remediation Testing
+                  │
+                  ▼
+          Incident Resolution
+                  │
+                  ▼
+        Audit / Observability
+Expected Capabilities
+Participants should demonstrate:
+•	Agent-based incident analysis
+•	Tool integration
+•	Log and metric analysis
+•	Root-cause analysis
+•	Severity classification
+•	Historical incident retrieval
+•	Remediation planning
+•	Human-in-the-loop approval
+•	Automated action
+•	Post-remediation validation
+•	Auditability
+Suggested Technology Stack
+•	Python
+•	FastAPI
+•	LangChain
+•	LangGraph
+•	AWS
+•	Docker
+•	Kubernetes
+•	Terraform
+•	GitHub Actions
+•	Prometheus
+•	Grafana
+•	LangSmith
+•	LangFuse
+Expected Deliverables
+1.	Production-ready application
+2.	Agent workflow
+3.	Source code
+4.	Tool/API integrations
+5.	Infrastructure-as-Code
+6.	CI/CD pipeline
+7.	Monitoring dashboard
+8.	LangSmith/LangFuse traces
+9.	Security design
+10.	Test and evaluation report
+11.	Architecture document
+12.	Deployment guide
+13.	Final demonstration
