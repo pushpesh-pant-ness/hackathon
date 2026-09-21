@@ -65,6 +65,19 @@ class ChatResponse(BaseModel):
     sources: list[Source]
 
 
+class SessionSummary(BaseModel):
+    session_id: str
+    website_url: str
+    normalized_host: str | None = None
+    status: str
+    created_at: str
+    updated_at: str
+    pages_discovered: int
+    pages_retained: int
+    chunks: int
+    services: list[str]
+
+
 def _mark_failed(job_id: str, session_id: str, error: str, **job_fields) -> None:
     db.update_crawl_job(job_id, status="failed", error=error, finished_at=_now_iso(), **job_fields)
     sessions.update_session(session_id, status="failed")
@@ -199,6 +212,28 @@ def chat(payload: ChatRequest) -> ChatResponse:
     db.insert_message(payload.session_id, role="user", content=payload.message)
     result = flows.route(payload.session_id, payload.message)
     return ChatResponse(**result)
+
+
+@app.get("/sessions", response_model=list[SessionSummary])
+def list_sessions(limit: int = 50) -> list[SessionSummary]:
+    """Previously crawled sites, most recently updated first - lets the UI offer a
+    "switch session" picker instead of re-crawling a site that's already indexed.
+    """
+    return [
+        SessionSummary(
+            session_id=row["id"],
+            website_url=row["website_url"],
+            normalized_host=row.get("normalized_host"),
+            status=row["status"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+            pages_discovered=row["pages_discovered"],
+            pages_retained=row["pages_retained"],
+            chunks=row["chunks"],
+            services=row["services"],
+        )
+        for row in sessions.list_sessions(limit=limit)
+    ]
 
 
 @app.get("/sessions/{session_id}")

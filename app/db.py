@@ -126,6 +126,20 @@ def get_session(session_id: str) -> dict[str, Any] | None:
     return result
 
 
+def list_sessions(limit: int = 50) -> list[dict[str, Any]]:
+    """Most-recently-updated sessions first, for the "switch session" UI picker."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM sessions ORDER BY updated_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+    result = []
+    for row in rows:
+        item = dict(row)
+        item["meta"] = json.loads(item.get("meta") or "{}")
+        result.append(item)
+    return result
+
+
 def update_session(session_id: str, **fields: Any) -> None:
     if not fields:
         return

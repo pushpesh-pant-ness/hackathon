@@ -22,6 +22,25 @@ _STRIP_TAGS = ["script", "style", "noscript", "nav", "footer", "header", "aside"
 _BLOCK_TAGS = ["h1", "h2", "h3", "h4", "p", "li", "pre", "blockquote", "dd", "dt"]
 _HEADING_TAGS = {"h1", "h2", "h3", "h4"}
 _WS = re.compile(r"\s+")
+_ZERO_WIDTH = re.compile(r"[\u200b\u200c\u200d\ufeff]")
+
+# Many real sites mark up nav/sidebar/footer chrome with plain <div id="...">/
+# class="..."> instead of the semantic tags in _STRIP_TAGS above, so it survives
+# into `container = soup.find("main") or ... or soup.body` and pollutes every
+# chunk on the page (e.g. a top nav bar ending up inside chunk 0's text).
+# Matched by exact id/class token only (never substring), so a legitimate
+# wrapper like class="content-with-sidebar" is never falsely caught.
+_BOILERPLATE_LANDMARKS = {
+    "header", "footer", "sidebar", "nav", "navbar", "menu", "topbar",
+    "breadcrumb", "breadcrumbs", "cookie", "cookies", "cookie-banner",
+    "newsletter", "subscribe", "pagination", "pager", "social", "share",
+}
+# A <ul>/<ol> that is almost entirely short link text (a nav/menu list) rather
+# than prose, regardless of what it's named - catches things like
+# class="menu-list-container" that _BOILERPLATE_LANDMARKS would miss.
+_NAV_LIST_MIN_ITEMS = 3
+_NAV_LIST_MAX_AVG_CHARS = 40
+_NAV_LIST_MIN_LINK_RATIO = 0.9
 
 
 @dataclass
@@ -44,6 +63,7 @@ def _document_id(canonical_url: str) -> str:
 
 
 def _normalize(text: str) -> str:
+    text = _ZERO_WIDTH.sub("", text)
     return _WS.sub(" ", text).strip()
 
 
@@ -80,10 +100,49 @@ def _extract_sections(soup: BeautifulSoup) -> list[dict]:
     return sections
 
 
+def _is_boilerplate_landmark(tag) -> bool:
+    tag_id = (tag.get("id") or "").strip().lower()
+    if tag_id in _BOILERPLATE_LANDMARKS:
+        return True
+    classes = {c.lower() for c in (tag.get("class") or [])}
+    return bool(classes & _BOILERPLATE_LANDMARKS)
+
+
+def _is_link_menu(list_tag) -> bool:
+    """Structural nav-menu detector: a <ul>/<ol> of short, almost-all-link items."""
+    items = list_tag.find_all("li", recursive=False)
+    if len(items) < _NAV_LIST_MIN_ITEMS:
+        return False
+    total_chars = 0
+    link_chars = 0
+    for li in items:
+        text = li.get_text(" ", strip=True)
+        total_chars += len(text)
+        link_chars += sum(len(a.get_text(" ", strip=True)) for a in li.find_all("a"))
+    if total_chars == 0:
+        return False
+    avg_chars = total_chars / len(items)
+    return link_chars / total_chars >= _NAV_LIST_MIN_LINK_RATIO and avg_chars <= _NAV_LIST_MAX_AVG_CHARS
+
+
+def _strip_boilerplate(soup: BeautifulSoup) -> None:
+    """Remove chrome that survives _STRIP_TAGS because it isn't semantically marked
+    up (§11): id/class landmarks (header/sidebar/footer/...) plus any <ul>/<ol>
+    that is structurally a link menu.
+    """
+    for tag in [t for t in soup.find_all(True) if _is_boilerplate_landmark(t)]:
+        if tag.parent is not None:
+            tag.decompose()
+    for list_tag in [t for t in soup.find_all(["ul", "ol"]) if _is_link_menu(t)]:
+        if list_tag.parent is not None:
+            list_tag.decompose()
+
+
 def clean_page(page: RetainedPage, session_id: str) -> CleanedDocument:
     soup = BeautifulSoup(page.html, "lxml")
     for tag in soup.find_all(_STRIP_TAGS):
         tag.decompose()
+    _strip_boilerplate(soup)
 
     title = _extract_title(soup)
     sections = _extract_sections(soup)

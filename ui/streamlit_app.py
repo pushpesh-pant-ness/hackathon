@@ -65,6 +65,8 @@ _DEFAULTS = {
     "services": [],
     "sitemap_pages": [],
     "sitemap_failures": [],
+    "pages_rendered_with_js": 0,
+    "manifest": {},
     "messages": [],
     "poll_count": 0,
     "error": None,
@@ -72,11 +74,95 @@ _DEFAULTS = {
 for _key, _value in _DEFAULTS.items():
     st.session_state.setdefault(_key, _value)
 
+
+def _load_session(full: dict) -> None:
+    """Hydrate session_state from GET /sessions/{id} so a previously-built
+    knowledge base can be chatted with again without re-crawling.
+    """
+    st.session_state.session_id = full["id"]
+    st.session_state.website_url = full["website_url"]
+    st.session_state.crawl_job_id = None
+    st.session_state.crawl_status = "done" if full["status"] == "ready" else full["status"]
+    st.session_state.pages_discovered = full["pages_discovered"]
+    st.session_state.pages_retained = full["pages_retained"]
+    st.session_state.pages_failed = 0
+    st.session_state.chunks = full["chunks"]
+    st.session_state.services = full["services"]
+    st.session_state.sitemap_pages = []
+    st.session_state.sitemap_failures = []
+    st.session_state.pages_rendered_with_js = 0
+    st.session_state.crawl_error = None
+    st.session_state.error = None
+    st.session_state.poll_count = 0
+    st.session_state.manifest = full.get("manifest") or {}
+    st.session_state.messages = [
+        {"role": msg["role"], "content": msg["content"], "sources": msg.get("sources", [])}
+        for msg in full.get("messages", [])
+    ]
+
+
 with st.sidebar:
     st.header("Session")
     if st.session_state.session_id:
         st.caption(f"session_id: {st.session_state.session_id}")
         st.caption(f"website: {st.session_state.website_url}")
+
+    st.divider()
+    st.subheader("Previous Sessions")
+    try:
+        session_list = call_api("GET", "/sessions")
+    except BackendError:
+        session_list = []
+
+    if session_list:
+        PLACEHOLDER = "-- select a session --"
+        options = [PLACEHOLDER] + [s["session_id"] for s in session_list]
+        labels = {
+            s["session_id"]: f"{s['website_url']} · {s['status']} · {s['chunks']} chunks"
+            for s in session_list
+        }
+        current = st.session_state.session_id
+        default_index = options.index(current) if current in options else 0
+        picked = st.selectbox(
+            "Load a previous session",
+            options,
+            index=default_index,
+            format_func=lambda sid: labels.get(sid, sid),
+            key="session_picker",
+        )
+        if picked != PLACEHOLDER and picked != current:
+            try:
+                full = call_api("GET", f"/sessions/{picked}")
+            except BackendError as exc:
+                st.error(f"Could not load session: {exc}")
+            else:
+                _load_session(full)
+                st.rerun()
+    else:
+        st.caption("No previous sessions yet.")
+
+    manifest = st.session_state.manifest
+    if manifest:
+        with st.expander("Knowledge base details", expanded=False):
+            st.caption(f"Host: {manifest.get('normalized_host', '—')}")
+            st.caption(
+                f"Chunk size: {manifest.get('chunk_target_tokens', '—')} tokens "
+                f"(overlap {manifest.get('chunk_overlap_tokens', '—')} tokens)"
+            )
+            st.caption(
+                f"Embedding model: {manifest.get('embedding_model', '—')} "
+                f"({manifest.get('embedding_dimensions', '—')} dims)"
+            )
+            st.caption(
+                f"Pages: {manifest.get('pages_retained', '—')} retained / "
+                f"{manifest.get('pages_discovered', '—')} discovered / "
+                f"{manifest.get('pages_failed', '—')} failed"
+            )
+            st.caption(f"Chunks indexed: {manifest.get('chunks', '—')}")
+            st.caption(f"Services: {', '.join(manifest.get('services', [])) or 'none detected'}")
+            st.caption(f"Built: {manifest.get('created_at', '—')}")
+
+    st.divider()
     if st.button("Start Over"):
         st.session_state.clear()
         st.rerun()
@@ -103,6 +189,8 @@ if submitted and url:
         st.session_state.services = []
         st.session_state.sitemap_pages = []
         st.session_state.sitemap_failures = []
+        st.session_state.pages_rendered_with_js = 0
+        st.session_state.manifest = {}
         st.session_state.crawl_error = None
         st.session_state.error = None
     except BackendError as exc:
@@ -128,6 +216,7 @@ if st.session_state.crawl_job_id and st.session_state.crawl_status in POLL_STATU
         sitemap = status_payload.get("sitemap") or {}
         st.session_state.sitemap_pages = sitemap.get("pages", [])
         st.session_state.sitemap_failures = sitemap.get("failures", [])
+        st.session_state.pages_rendered_with_js = sitemap.get("pages_rendered_with_js", 0)
     except BackendError as exc:
         st.error(f"Could not fetch status: {exc}")
 
@@ -159,10 +248,16 @@ if st.session_state.crawl_job_id:
                 + (f", {st.session_state.pages_failed} skipped" if st.session_state.pages_failed else "")
                 + "."
             )
+            if st.session_state.pages_rendered_with_js:
+                st.caption(
+                    f"{st.session_state.pages_rendered_with_js} page(s) needed JavaScript "
+                    "rendering to load their content."
+                )
             if st.session_state.sitemap_pages:
                 with st.expander(f"Site map ({len(st.session_state.sitemap_pages)} pages)"):
                     for page in st.session_state.sitemap_pages:
-                        st.markdown(f"- {page['canonical_url']}")
+                        badge = " -- rendered with JavaScript" if page.get("rendered_with_js") else ""
+                        st.markdown(f"- {page['canonical_url']}{badge}")
             if st.session_state.sitemap_failures:
                 with st.expander(f"Pages skipped ({len(st.session_state.sitemap_failures)})"):
                     for failure in st.session_state.sitemap_failures:
@@ -212,6 +307,14 @@ if st.session_state.crawl_job_id:
                 st.markdown(f"- {service}")
         elif status == "done":
             st.caption("No distinct services were detected on this site.")
+
+        if status == "done" and not st.session_state.manifest:
+            try:
+                full = call_api("GET", f"/sessions/{st.session_state.session_id}")
+                st.session_state.manifest = full.get("manifest") or {}
+                st.rerun()
+            except BackendError:
+                pass  # non-fatal: the details panel just stays hidden this run
 
     if status in POLL_STATUSES:
         st.session_state.poll_count += 1

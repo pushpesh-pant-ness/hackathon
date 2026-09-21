@@ -35,6 +35,42 @@ def _split_words(text: str, target_tokens: int, overlap_tokens: int) -> list[str
     return pieces
 
 
+def _pack_paragraphs(paragraphs: list[str], target_tokens: int, overlap_tokens: int) -> list[str]:
+    """Group whole paragraphs up to the token budget (§14: "paragraph groups"
+    before "target chunk size"), instead of slicing raw word counts, so a chunk
+    only ever splits mid-paragraph when a single paragraph alone exceeds the
+    budget. The last paragraph of a chunk is carried into the next one for
+    continuity, mirroring `_split_words`'s word-level overlap.
+    """
+    budget = max(1, int(target_tokens * _WORDS_PER_TOKEN))
+    pieces: list[str] = []
+    group: list[str] = []
+    group_words = 0
+
+    def flush() -> None:
+        if group:
+            pieces.append("\n\n".join(group))
+
+    for para in paragraphs:
+        words = para.split()
+        if not words:
+            continue
+        if len(words) > budget:
+            flush()
+            group, group_words = [], 0
+            pieces.extend(_split_words(para, target_tokens, overlap_tokens))
+            continue
+        if group and group_words + len(words) > budget:
+            flush()
+            carry = group[-1] if overlap_tokens > 0 else None
+            group = [carry] if carry else []
+            group_words = len(carry.split()) if carry else 0
+        group.append(para)
+        group_words += len(words)
+    flush()
+    return pieces
+
+
 def chunk_document(
     doc: CleanedDocument,
     target_tokens: int = config.CHUNK_TARGET_TOKENS,
@@ -46,7 +82,8 @@ def chunk_document(
     for section in doc.sections:
         heading = section["heading"]
         prefix = f"{doc.title} > {heading}" if heading else doc.title
-        for piece in _split_words(section["text"], target_tokens, overlap_tokens):
+        paragraphs = section["text"].split("\n\n")
+        for piece in _pack_paragraphs(paragraphs, target_tokens, overlap_tokens):
             chunks.append({
                 "chunk_id": f"{doc.document_id}-c{idx}",
                 "document_id": doc.document_id,

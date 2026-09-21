@@ -28,6 +28,7 @@ from ingest.url_validator import (
     safe_absolute_url,
     validate_seed_url,
 )
+from ingest import js_renderer
 
 # Asset/document extensions and non-http schemes we never enqueue (§9).
 _SKIP_EXTENSIONS = {
@@ -50,6 +51,7 @@ class RetainedPage:
     content_type: str
     html: str
     depth: int
+    rendered_with_js: bool = False
 
 
 @dataclass
@@ -73,6 +75,10 @@ class CrawlResult:
     @property
     def pages_failed(self) -> int:
         return len(self.failures)
+
+    @property
+    def pages_rendered_with_js(self) -> int:
+        return sum(1 for p in self.pages if p.rendered_with_js)
 
 
 def is_crawlable_link(url: str) -> bool:
@@ -185,6 +191,16 @@ def _fetch(session: requests.Session, url: str, allowed_hosts: set[str]) -> Reta
         # the real encoding from the bytes themselves.
         encoding = resp.encoding if has_explicit_charset else _sniff_encoding(body)
         html = body.decode(encoding or "utf-8", errors="replace")
+
+        rendered_with_js = False
+        if not _has_meaningful_text(html) and config.RENDER_JS:
+            # Static fetch looks like an empty JS-app shell - retry with a headless
+            # browser so client-side-rendered content isn't silently dropped (§36.2).
+            rendered_html = js_renderer.render_page(current, allowed_hosts)
+            if rendered_html and _has_meaningful_text(rendered_html):
+                html = rendered_html
+                rendered_with_js = True
+
         if not _has_meaningful_text(html):
             return None
         return RetainedPage(
@@ -194,6 +210,7 @@ def _fetch(session: requests.Session, url: str, allowed_hosts: set[str]) -> Reta
             content_type=content_type or "text/html",
             html=html,
             depth=0,
+            rendered_with_js=rendered_with_js,
         )
 
     raise ValueError("too many redirects")
@@ -210,35 +227,39 @@ def crawl(seed_url: str, *, include_www: bool = True) -> CrawlResult:
     visited: set[str] = set()
     queue: deque[tuple[str, int]] = deque([(seed.canonical_url, 0)])
 
-    while queue and result.pages_retained < config.MAX_PAGES:
-        url, depth = queue.popleft()
-        if url in visited or depth > config.MAX_DEPTH:
-            continue
-        visited.add(url)
-        result.discovered += 1
+    try:
+        while queue and result.pages_retained < config.MAX_PAGES:
+            url, depth = queue.popleft()
+            if url in visited or depth > config.MAX_DEPTH:
+                continue
+            visited.add(url)
+            result.discovered += 1
 
-        if not robots.can_fetch(url):
-            result.failures.append(CrawlFailure(url, "blocked by robots.txt"))
-            continue
+            if not robots.can_fetch(url):
+                result.failures.append(CrawlFailure(url, "blocked by robots.txt"))
+                continue
 
-        try:
-            page = _fetch(session, url, seed.allowed_hosts)
-        except (UrlValidationError, ValueError, requests.RequestException) as exc:
-            result.failures.append(CrawlFailure(url, str(exc)))
-            continue
+            try:
+                page = _fetch(session, url, seed.allowed_hosts)
+            except (UrlValidationError, ValueError, requests.RequestException) as exc:
+                result.failures.append(CrawlFailure(url, str(exc)))
+                continue
 
-        if page is None:
-            continue
+            if page is None:
+                continue
 
-        page.depth = depth
-        result.pages.append(page)
+            page.depth = depth
+            result.pages.append(page)
 
-        if depth < config.MAX_DEPTH and result.pages_retained < config.MAX_PAGES:
-            for link in extract_links(page.html, page.canonical_url, seed.allowed_hosts):
-                if link not in visited:
-                    queue.append((link, depth + 1))
+            if depth < config.MAX_DEPTH and result.pages_retained < config.MAX_PAGES:
+                for link in extract_links(page.html, page.canonical_url, seed.allowed_hosts):
+                    if link not in visited:
+                        queue.append((link, depth + 1))
 
-        if config.CRAWL_DELAY_SECONDS:
-            time.sleep(config.CRAWL_DELAY_SECONDS)
+            if config.CRAWL_DELAY_SECONDS:
+                time.sleep(config.CRAWL_DELAY_SECONDS)
+    finally:
+        # Release the shared headless browser, if `_fetch` ever launched one.
+        js_renderer.shutdown()
 
     return result

@@ -63,7 +63,28 @@ def get_full_session(session_id: str) -> dict[str, Any] | None:
         "services": db.list_services(session_id),
         "messages": db.list_messages(session_id),
         "flow_events": db.list_flow_events(session_id),
+        "manifest": get_manifest(session_id),
     }
+
+
+def get_manifest(session_id: str) -> dict[str, Any] | None:
+    """Build-time details for a session's knowledge base (chunk size/overlap,
+    embedding model/dimensions, page counts, etc. - see ingest/pipeline.py's
+    manifest dict). None if the knowledge base hasn't been built yet.
+    Older sessions built before a given key existed simply omit it; callers
+    should use .get(...) with a fallback rather than assuming all keys exist.
+    """
+    path = session_dir(session_id) / "manifest.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def list_sessions(limit: int = 50) -> list[dict[str, Any]]:
+    """Lightweight summaries of past sessions (most recently updated first), for
+    the "switch session" UI picker so a known site doesn't need to be re-crawled.
+    """
+    return [{**row, "services": db.list_services(row["id"])} for row in db.list_sessions(limit=limit)]
 
 
 def seed_from_fixture(session_id: str, fixture_name: str = "fixture_demo") -> dict[str, Any]:

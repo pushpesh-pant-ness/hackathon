@@ -112,6 +112,8 @@ def process_pages(
         "service_catalog": catalog,
         "embedding_model": embedding_model,
         "embedding_dimensions": config.EMBED_DIMENSIONS,
+        "chunk_target_tokens": config.CHUNK_TARGET_TOKENS,
+        "chunk_overlap_tokens": config.CHUNK_OVERLAP_TOKENS,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "ready",
     }
@@ -169,6 +171,7 @@ def save_sitemap(session_id: str, crawl_result: CrawlResult) -> dict:
             "content_type": page.content_type,
             "depth": page.depth,
             "raw_file": raw_name,
+            "rendered_with_js": page.rendered_with_js,
         })
 
     sitemap = {
@@ -176,6 +179,7 @@ def save_sitemap(session_id: str, crawl_result: CrawlResult) -> dict:
         "host": crawl_result.host,
         "discovered": crawl_result.discovered,
         "pages": pages,
+        "pages_rendered_with_js": crawl_result.pages_rendered_with_js,
         "failures": [{"url": f.url, "reason": f.reason} for f in crawl_result.failures],
     }
     _sitemap_path(session_id).write_text(json.dumps(sitemap, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -200,6 +204,7 @@ def _crawl_result_from_sitemap(session_id: str, sitemap: dict) -> CrawlResult:
             content_type=p["content_type"],
             html=(pending / p["raw_file"]).read_text(encoding="utf-8"),
             depth=p["depth"],
+            rendered_with_js=p.get("rendered_with_js", False),
         )
         for p in sitemap["pages"]
     ]

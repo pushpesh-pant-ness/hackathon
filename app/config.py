@@ -32,6 +32,13 @@ def _env_float(name: str, default: float) -> float:
     return float(raw) if raw else default
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
 @dataclass(frozen=True)
 class Settings:
     # AWS / Bedrock
@@ -59,6 +66,11 @@ class Settings:
     max_response_bytes: int = field(default_factory=lambda: _env_int("MAX_RESPONSE_BYTES", 2_000_000))
     crawl_delay_seconds: float = field(default_factory=lambda: _env_float("CRAWL_DELAY_SECONDS", 0.5))
     user_agent: str = field(default_factory=lambda: _env_str("USER_AGENT", "HackathonRAGBot/0.1"))
+    # Headless-browser fallback for JS-rendered pages (§36.2). Optional dependency
+    # (`pip install playwright` + `playwright install chromium`) - silently no-ops if
+    # missing, so leaving this on by default never breaks a crawl.
+    render_js: bool = field(default_factory=lambda: _env_bool("RENDER_JS", True))
+    js_render_timeout_ms: int = field(default_factory=lambda: _env_int("JS_RENDER_TIMEOUT_MS", 15_000))
 
     # Chunking (Dev A)
     chunk_target_tokens: int = field(default_factory=lambda: _env_int("CHUNK_TARGET_TOKENS", 800))
@@ -98,6 +110,8 @@ REQUEST_TIMEOUT = settings.request_timeout
 MAX_RESPONSE_BYTES = settings.max_response_bytes
 CRAWL_DELAY_SECONDS = settings.crawl_delay_seconds
 USER_AGENT = settings.user_agent
+RENDER_JS = settings.render_js
+JS_RENDER_TIMEOUT_MS = settings.js_render_timeout_ms
 CHUNK_TARGET_TOKENS = settings.chunk_target_tokens
 CHUNK_OVERLAP_TOKENS = settings.chunk_overlap_tokens
 DATA_DIR = settings.sessions_dir

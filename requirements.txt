@@ -20,5 +20,8 @@ streamlit
 beautifulsoup4==4.12.3
 lxml
 pillow
+# Optional headless-browser fallback for JS-rendered pages (see ingest/js_renderer.py).
+# After installing, also run: playwright install chromium
+playwright==1.47.0
 # --- Tests (shared) ---
 pytest

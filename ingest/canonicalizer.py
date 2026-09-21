@@ -21,8 +21,15 @@ from urllib.parse import parse_qsl, urldefrag, urljoin, urlencode, urlsplit, url
 _ALLOWED_SCHEMES = {"http", "https"}
 _DEFAULT_PORTS = {"http": "80", "https": "443"}
 
-# Exact tracking keys and prefixes to drop from the query string.
-_TRACKING_KEYS = {"gclid", "fbclid", "mc_cid", "mc_eid", "igshid", "ref", "ref_src"}
+# Exact tracking keys and prefixes to drop from the query string. Locale/language
+# switches are included so the crawler doesn't waste its page budget retaining
+# near-duplicate translations of the same page under different query strings
+# (e.g. "?locale=en" / "?locale=ru" both canonicalize to the same URL, so BFS
+# dedup treats the second one as already visited instead of re-crawling it).
+_TRACKING_KEYS = {
+    "gclid", "fbclid", "mc_cid", "mc_eid", "igshid", "ref", "ref_src",
+    "locale", "lang", "hl", "language",
+}
 _TRACKING_PREFIXES = ("utm_",)
 
 

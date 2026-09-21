@@ -23,7 +23,9 @@ Rules:
 1. Use only the supplied website evidence to answer.
 2. Do not invent facts that are not present in the evidence.
 3. If the evidence is insufficient or conflicting, say so plainly.
-4. Keep the answer concise.
+4. Be thorough and specific: synthesize every relevant detail from the evidence
+   (not just the first snippet), and use short paragraphs or bullet points when
+   the answer has multiple parts. Do not pad the answer with filler.
 5. Cite the relevant source(s) inline using their bracket numbers, e.g. [1], [2]."""
 
 _CITATION_RE = re.compile(r"\[(\d+)\]")
